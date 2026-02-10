@@ -2,9 +2,13 @@
     CouchSpawner.luau
     Spawns and manages per-player Gorilla Couches
     Each player gets their own couch that only they can click
+    
+    SETUP: Place your custom couch model in ServerStorage named "CouchTemplate"
+           Make sure it has a PrimaryPart set (the main seat/body)
 ]]
 
 local Players = game:GetService("Players")
+local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(game.ReplicatedStorage.Shared.GameConfig)
@@ -19,6 +23,9 @@ local playerCouches = {}
 local SPAWN_RADIUS = 25
 local CENTER_POSITION = Vector3.new(0, 0, 0)
 
+-- Template couch (loaded on init)
+local couchTemplate = nil
+
 -- Get spawn position for player (arranged in a circle)
 local function getSpawnPosition(playerIndex: number, totalPlayers: number): Vector3
     -- Arrange in a circle, with first player at front
@@ -28,8 +35,8 @@ local function getSpawnPosition(playerIndex: number, totalPlayers: number): Vect
     return Vector3.new(x, 2, z) -- Y=2 puts seat just above ground
 end
 
--- Create a couch model for a player
-local function createCouchModel(player: Player, position: Vector3): Model
+-- Create a fallback couch if no template exists
+local function createFallbackCouch(player: Player, position: Vector3): Model
     local couch = Instance.new("Model")
     couch.Name = player.Name .. "'s Couch"
     
@@ -37,8 +44,7 @@ local function createCouchModel(player: Player, position: Vector3): Model
     couch:SetAttribute("OwnerId", player.UserId)
     couch:SetAttribute("OwnerName", player.Name)
     
-    -- Create couch parts
-    -- Seat (main body)
+    -- Create basic couch parts
     local seat = Instance.new("Part")
     seat.Name = "Seat"
     seat.Size = Vector3.new(8, 2, 4)
@@ -48,7 +54,6 @@ local function createCouchModel(player: Player, position: Vector3): Model
     seat.Material = Enum.Material.Fabric
     seat.Parent = couch
     
-    -- Backrest
     local backrest = Instance.new("Part")
     backrest.Name = "Backrest"
     backrest.Size = Vector3.new(8, 4, 1)
@@ -58,7 +63,6 @@ local function createCouchModel(player: Player, position: Vector3): Model
     backrest.Material = Enum.Material.Fabric
     backrest.Parent = couch
     
-    -- Left Arm
     local leftArm = Instance.new("Part")
     leftArm.Name = "LeftArm"
     leftArm.Size = Vector3.new(1, 3, 4)
@@ -68,7 +72,6 @@ local function createCouchModel(player: Player, position: Vector3): Model
     leftArm.Material = Enum.Material.Fabric
     leftArm.Parent = couch
     
-    -- Right Arm
     local rightArm = Instance.new("Part")
     rightArm.Name = "RightArm"
     rightArm.Size = Vector3.new(1, 3, 4)
@@ -78,7 +81,6 @@ local function createCouchModel(player: Player, position: Vector3): Model
     rightArm.Material = Enum.Material.Fabric
     rightArm.Parent = couch
     
-    -- Gorilla Body
     local gorillaBody = Instance.new("Part")
     gorillaBody.Name = "GorillaBody"
     gorillaBody.Shape = Enum.PartType.Ball
@@ -89,7 +91,6 @@ local function createCouchModel(player: Player, position: Vector3): Model
     gorillaBody.Material = Enum.Material.SmoothPlastic
     gorillaBody.Parent = couch
     
-    -- Gorilla Head
     local gorillaHead = Instance.new("Part")
     gorillaHead.Name = "GorillaHead"
     gorillaHead.Shape = Enum.PartType.Ball
@@ -97,53 +98,106 @@ local function createCouchModel(player: Player, position: Vector3): Model
     gorillaHead.Position = position + Vector3.new(0, 5, 0.5)
     gorillaHead.Anchored = true
     gorillaHead.Color = Color3.fromRGB(100, 100, 100)
-    gorillaHead.Material = Enum.Material.SmoothPlastic
+    gorillaBody.Material = Enum.Material.SmoothPlastic
     gorillaHead.Parent = couch
     
-    -- Click detection part (invisible, covers couch)
-    local clickPart = Instance.new("Part")
-    clickPart.Name = "ClickPart"
-    clickPart.Size = Vector3.new(10, 8, 6)
-    clickPart.Position = position + Vector3.new(0, 3, 0)
-    clickPart.Anchored = true
-    clickPart.Transparency = 1
-    clickPart.CanCollide = false
-    clickPart.Parent = couch
-    
-    -- Add ClickDetector
-    local clickDetector = Instance.new("ClickDetector")
-    clickDetector.MaxActivationDistance = 20
-    clickDetector.Parent = clickPart
-    
-    -- Owner name label (floating above couch)
-    local billboardPart = Instance.new("Part")
-    billboardPart.Name = "NameTag"
-    billboardPart.Size = Vector3.new(1, 1, 1)
-    billboardPart.Position = position + Vector3.new(0, 8, 0)
-    billboardPart.Anchored = true
-    billboardPart.Transparency = 1
-    billboardPart.CanCollide = false
-    billboardPart.Parent = couch
-    
-    local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 0, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = billboardPart
-    
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 1, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = "🦍 " .. player.Name .. "'s Couch"
-    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    nameLabel.TextStrokeTransparency = 0
-    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    nameLabel.TextScaled = true
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.Parent = billboard
-    
-    -- Set primary part
     couch.PrimaryPart = seat
+    return couch
+end
+
+-- Create a couch model for a player (clones template or uses fallback)
+local function createCouchModel(player: Player, position: Vector3): Model
+    local couch
+    
+    -- Try to clone the template
+    if couchTemplate then
+        couch = couchTemplate:Clone()
+        couch.Name = player.Name .. "'s Couch"
+        
+        -- Move couch to spawn position
+        if couch.PrimaryPart then
+            local offset = position - couch.PrimaryPart.Position
+            for _, part in couch:GetDescendants() do
+                if part:IsA("BasePart") then
+                    part.Position = part.Position + offset
+                end
+            end
+        end
+        
+        print("[CouchSpawner] Cloned custom CouchTemplate for " .. player.Name)
+    else
+        -- No template found, use fallback
+        couch = createFallbackCouch(player, position)
+        warn("[CouchSpawner] No CouchTemplate in ServerStorage, using fallback for " .. player.Name)
+    end
+    
+    -- Store owner info (always set these)
+    couch:SetAttribute("OwnerId", player.UserId)
+    couch:SetAttribute("OwnerName", player.Name)
+    
+    -- Add click detection if not present
+    local hasClickDetector = false
+    for _, desc in couch:GetDescendants() do
+        if desc:IsA("ClickDetector") then
+            hasClickDetector = true
+            break
+        end
+    end
+    
+    if not hasClickDetector then
+        -- Add invisible click part covering the couch
+        local clickPart = Instance.new("Part")
+        clickPart.Name = "ClickPart"
+        clickPart.Size = Vector3.new(10, 8, 6)
+        clickPart.Position = position + Vector3.new(0, 3, 0)
+        clickPart.Anchored = true
+        clickPart.Transparency = 1
+        clickPart.CanCollide = false
+        clickPart.Parent = couch
+        
+        local clickDetector = Instance.new("ClickDetector")
+        clickDetector.MaxActivationDistance = 20
+        clickDetector.Parent = clickPart
+    end
+    
+    -- Add name tag if not present
+    local hasNameTag = couch:FindFirstChild("NameTag")
+    if not hasNameTag then
+        local billboardPart = Instance.new("Part")
+        billboardPart.Name = "NameTag"
+        billboardPart.Size = Vector3.new(1, 1, 1)
+        billboardPart.Position = position + Vector3.new(0, 8, 0)
+        billboardPart.Anchored = true
+        billboardPart.Transparency = 1
+        billboardPart.CanCollide = false
+        billboardPart.Parent = couch
+        
+        local billboard = Instance.new("BillboardGui")
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 0, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = billboardPart
+        
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(1, 0, 1, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = "🦍 " .. player.Name .. "'s Couch"
+        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        nameLabel.TextStrokeTransparency = 0
+        nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        nameLabel.TextScaled = true
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.Parent = billboard
+    else
+        -- Update existing name tag text
+        local billboard = hasNameTag:FindFirstChildWhichIsA("BillboardGui")
+        if billboard then
+            local label = billboard:FindFirstChildWhichIsA("TextLabel")
+            if label then
+                label.Text = "🦍 " .. player.Name .. "'s Couch"
+            end
+        end
+    end
     
     return couch
 end
@@ -241,6 +295,16 @@ end
 
 -- Initialize spawner
 function CouchSpawner.Initialize()
+    -- Try to load custom couch template from ServerStorage
+    couchTemplate = ServerStorage:FindFirstChild("CouchTemplate")
+    
+    if couchTemplate then
+        print("[CouchSpawner] Found CouchTemplate in ServerStorage ✓")
+    else
+        warn("[CouchSpawner] No CouchTemplate in ServerStorage - using fallback couch")
+        warn("[CouchSpawner] To use your own model: put it in ServerStorage and name it 'CouchTemplate'")
+    end
+    
     -- Spawn couch for existing players
     for _, player in Players:GetPlayers() do
         CouchSpawner.SpawnCouchForPlayer(player)
