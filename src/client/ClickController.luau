@@ -189,34 +189,14 @@ local function updateCouchVisibility(couchModel: Model)
     
     local isMine = isMyCouch(couchModel)
     
-    -- Hide other players' couches by making all parts invisible
-    for _, part in couchModel:GetDescendants() do
-        if part:IsA("BasePart") then
-            if isMine then
-                -- My couch - keep visible (restore original transparency)
-                -- Don't change anything, let it render normally
-            else
-                -- Not my couch - hide it completely
-                part.Transparency = 1
-                part.CanCollide = false
-            end
-        elseif part:IsA("BillboardGui") then
-            -- Hide name tags of other players' couches
-            if not isMine then
-                part.Enabled = false
-            end
-        elseif part:IsA("ClickDetector") then
-            -- Disable click detection on other players' couches
-            if not isMine then
-                part.MaxActivationDistance = 0
-            end
-        end
-    end
-    
     if isMine then
+        -- My couch - keep everything as is
         print("[ClickController] Found MY couch! Setting up click detection...")
     else
-        print("[ClickController] Hiding " .. couchModel.Name .. " (not mine)")
+        -- Not my couch - DESTROY it locally so it can't interfere
+        -- This prevents click detection issues in instanced mode
+        print("[ClickController] Destroying " .. couchModel.Name .. " locally (not mine)")
+        couchModel:Destroy()
     end
 end
 
