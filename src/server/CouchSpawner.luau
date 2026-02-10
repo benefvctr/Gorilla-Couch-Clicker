@@ -159,17 +159,12 @@ local function createCouchModel(player: Player, position: Vector3): Model
         couch = couchTemplate:Clone()
         couch.Name = player.Name .. "'s Couch"
         
-        -- Move couch to spawn position
-        if couch.PrimaryPart then
-            local offset = position - couch.PrimaryPart.Position
-            for _, part in couch:GetDescendants() do
-                if part:IsA("BasePart") then
-                    part.Position = part.Position + offset
-                end
-            end
-        end
+        -- Move couch to spawn position using PivotTo (properly moves entire model)
+        local targetCFrame = CFrame.new(position)
+        couch:PivotTo(targetCFrame)
         
         print("[CouchSpawner] Cloned custom CouchTemplate for " .. player.Name)
+        print("[CouchSpawner] Positioned at:", position)
     else
         -- No template found, use fallback
         couch = createFallbackCouch(player, position)
