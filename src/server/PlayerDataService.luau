@@ -48,6 +48,37 @@ local function getDataKey(player: Player): string
     return "Player_" .. player.UserId
 end
 
+-- Create or update leaderstats for a player (displays in top-right leaderboard)
+local function updateLeaderstats(player: Player, data: table)
+    local leaderstats = player:FindFirstChild("leaderstats")
+    
+    if not leaderstats then
+        leaderstats = Instance.new("Folder")
+        leaderstats.Name = "leaderstats"
+        leaderstats.Parent = player
+        
+        -- Create stat values
+        local aura = Instance.new("IntValue")
+        aura.Name = "Aura"
+        aura.Parent = leaderstats
+        
+        local prestige = Instance.new("IntValue")
+        prestige.Name = "Prestige"
+        prestige.Parent = leaderstats
+    end
+    
+    -- Update values
+    local auraVal = leaderstats:FindFirstChild("Aura")
+    local prestigeVal = leaderstats:FindFirstChild("Prestige")
+    
+    if auraVal then
+        auraVal.Value = math.floor(data.Aura or 0)
+    end
+    if prestigeVal then
+        prestigeVal.Value = data.PrestigeLevel or 0
+    end
+end
+
 -- Deep copy a table
 local function deepCopy(original)
     local copy = {}
@@ -66,6 +97,7 @@ function PlayerDataService.LoadPlayerData(player: Player): table
     -- If DataStore not available, just use defaults
     if not canUseDataStore or not playerDataStore then
         playerDataCache[player.UserId] = deepCopy(GameConfig.DefaultPlayerData)
+        updateLeaderstats(player, playerDataCache[player.UserId])
         print("[PlayerData] Created local data for " .. player.Name .. " (DataStore unavailable)")
         return playerDataCache[player.UserId]
     end
@@ -90,11 +122,13 @@ function PlayerDataService.LoadPlayerData(player: Player): table
             end
             
             playerDataCache[player.UserId] = mergedData
+            updateLeaderstats(player, mergedData)
             print("[PlayerData] Loaded data for " .. player.Name .. " (Prestige: " .. mergedData.PrestigeLevel .. ")")
             return mergedData
         else
             -- New player, use defaults
             playerDataCache[player.UserId] = deepCopy(GameConfig.DefaultPlayerData)
+            updateLeaderstats(player, playerDataCache[player.UserId])
             print("[PlayerData] Created new data for " .. player.Name)
             return playerDataCache[player.UserId]
         end
@@ -102,6 +136,7 @@ function PlayerDataService.LoadPlayerData(player: Player): table
         warn("[PlayerData] Failed to load data for " .. player.Name .. ": " .. tostring(data))
         -- Use defaults
         playerDataCache[player.UserId] = deepCopy(GameConfig.DefaultPlayerData)
+        updateLeaderstats(player, playerDataCache[player.UserId])
         return playerDataCache[player.UserId]
     end
 end
@@ -160,6 +195,9 @@ function PlayerDataService.AddAura(player: Player, baseAmount: number): number
     data.TotalAuraEarned = data.TotalAuraEarned + actualAmount
     data.LifetimeAura = data.LifetimeAura + actualAmount
     
+    -- Update leaderboard
+    updateLeaderstats(player, data)
+    
     return actualAmount
 end
 
@@ -168,6 +206,8 @@ function PlayerDataService.SpendAura(player: Player, amount: number): boolean
     local data = playerDataCache[player.UserId]
     if data and data.Aura >= amount then
         data.Aura = data.Aura - amount
+        -- Update leaderboard
+        updateLeaderstats(player, data)
         return true
     end
     return false
@@ -220,6 +260,9 @@ function PlayerDataService.PerformPrestige(player: Player): boolean
     
     -- Update cache
     playerDataCache[player.UserId] = freshData
+    
+    -- Update leaderboard
+    updateLeaderstats(player, freshData)
     
     print("[PlayerData] " .. player.Name .. " prestiged to level " .. newPrestigeLevel)
     return true
