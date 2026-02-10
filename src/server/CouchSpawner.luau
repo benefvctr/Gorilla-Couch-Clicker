@@ -76,7 +76,7 @@ local function getSpawnPosition(playerIndex: number, totalPlayers: number): Vect
         local angle = (playerIndex - 1) * (2 * math.pi / math.max(totalPlayers, 8))
         local x = CENTER_POSITION.X + SPAWN_RADIUS * math.sin(angle)
         local z = CENTER_POSITION.Z + SPAWN_RADIUS * math.cos(angle)
-        return Vector3.new(x, 2, z)
+        return Vector3.new(x, 12, z)
     end
 end
 
