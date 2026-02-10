@@ -71,4 +71,8 @@ ClickController.OnProgressUpdated = function(playerData)
     UIController.UpdateClickStats()
 end
 
+ClickController.OnRejection = function(message)
+    UIController.ShowRejectionMessage(message)
+end
+
 print("[Client] Gorilla Couch Clicker client initialized! 🦍🛋️")

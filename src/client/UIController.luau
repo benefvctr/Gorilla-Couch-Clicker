@@ -742,6 +742,59 @@ function UIController.ShowClickFeedback(aura: number, isLucky: boolean)
     end)
 end
 
+-- Show rejection message (when clicking someone else's couch)
+function UIController.ShowRejectionMessage(message: string)
+    if not mainGui then return end
+    
+    local label = Instance.new("TextLabel")
+    label.Name = "RejectionMessage"
+    label.Size = UDim2.new(0, 500, 0, 60)
+    label.Position = UDim2.new(0.5, -250, 0.4, 0)
+    label.BackgroundColor3 = Color3.fromRGB(60, 20, 20)
+    label.BackgroundTransparency = 0.2
+    label.Text = message
+    label.TextColor3 = Color3.fromRGB(255, 100, 100)
+    label.TextStrokeTransparency = 0
+    label.TextStrokeColor3 = Color3.fromRGB(30, 0, 0)
+    label.TextSize = 24
+    label.Font = Enum.Font.GothamBold
+    label.Parent = mainGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = label
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 80, 80)
+    stroke.Thickness = 2
+    stroke.Parent = label
+    
+    -- Shake animation
+    local originalPos = label.Position
+    for i = 1, 3 do
+        task.spawn(function()
+            task.wait(i * 0.05)
+            label.Position = originalPos + UDim2.new(0, math.random(-10, 10), 0, 0)
+            task.wait(0.05)
+            label.Position = originalPos
+        end)
+    end
+    
+    -- Fade out after 2 seconds
+    task.delay(1.5, function()
+        local fadeTween = TweenService:Create(
+            label,
+            TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            { BackgroundTransparency = 1, TextTransparency = 1, TextStrokeTransparency = 1 }
+        )
+        fadeTween:Play()
+        
+        task.delay(0.6, function()
+            label:Destroy()
+        end)
+    end)
+end
+
 -- Handle upgrade response
 function UIController.OnUpgradeResponse(data)
     cachedPlayerData = data.PlayerData

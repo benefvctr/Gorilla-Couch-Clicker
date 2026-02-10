@@ -24,6 +24,9 @@
     },
 
     "Workspace": {
+      "$properties": {
+        "Gravity": 196.2
+      },
       "Baseplate": {
         "$className": "Part",
         "$properties": {
@@ -33,81 +36,6 @@
           "Locked": true,
           "Position": [0, -10, 0],
           "Size": [512, 20, 512]
-        }
-      },
-      "GorillaCouch": {
-        "$className": "Model",
-        "Seat": {
-          "$className": "Part",
-          "$properties": {
-            "Anchored": true,
-            "Color": [0.63, 0.45, 0.28],
-            "Material": "Fabric",
-            "Position": [0, 2, 10],
-            "Size": [8, 2, 4]
-          }
-        },
-        "Backrest": {
-          "$className": "Part",
-          "$properties": {
-            "Anchored": true,
-            "Color": [0.63, 0.45, 0.28],
-            "Material": "Fabric",
-            "Position": [0, 4, 8.5],
-            "Size": [8, 4, 1]
-          }
-        },
-        "LeftArm": {
-          "$className": "Part",
-          "$properties": {
-            "Anchored": true,
-            "Color": [0.63, 0.45, 0.28],
-            "Material": "Fabric",
-            "Position": [-4, 3, 10],
-            "Size": [1, 3, 4]
-          }
-        },
-        "RightArm": {
-          "$className": "Part",
-          "$properties": {
-            "Anchored": true,
-            "Color": [0.63, 0.45, 0.28],
-            "Material": "Fabric",
-            "Position": [4, 3, 10],
-            "Size": [1, 3, 4]
-          }
-        },
-        "GorillaBody": {
-          "$className": "Part",
-          "$properties": {
-            "Anchored": true,
-            "Color": [0.35, 0.35, 0.35],
-            "Material": "SmoothPlastic",
-            "Shape": "Ball",
-            "Position": [0, 5, 10],
-            "Size": [3, 3, 3]
-          }
-        },
-        "GorillaHead": {
-          "$className": "Part",
-          "$properties": {
-            "Anchored": true,
-            "Color": [0.4, 0.4, 0.4],
-            "Material": "SmoothPlastic",
-            "Shape": "Ball",
-            "Position": [0, 7, 10.5],
-            "Size": [2, 2, 2]
-          }
-        },
-        "ClickPrompt": {
-          "$className": "Part",
-          "$properties": {
-            "Anchored": true,
-            "Transparency": 1,
-            "CanCollide": false,
-            "Position": [0, 9, 10],
-            "Size": [1, 1, 1]
-          }
         }
       }
     },

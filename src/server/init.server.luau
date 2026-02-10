@@ -12,6 +12,7 @@ local UpgradeHandler = require(script.UpgradeHandler)
 local AutoClickerService = require(script.AutoClickerService)
 local GamePassService = require(script.GamePassService)
 local VendorHandler = require(script.VendorHandler)
+local CouchSpawner = require(script.CouchSpawner)
 
 -- Initialize in order (PlayerDataService first as others depend on it)
 PlayerDataService.Initialize()
@@ -20,5 +21,6 @@ ClickHandler.Initialize()
 UpgradeHandler.Initialize()
 AutoClickerService.Initialize()
 VendorHandler.Initialize()
+CouchSpawner.Initialize()  -- Spawns couches for players
 
 print("[Server] Gorilla Couch Clicker initialized successfully! 🦍🛋️")

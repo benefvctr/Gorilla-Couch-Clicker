@@ -10,6 +10,7 @@ local Players = game:GetService("Players")
 
 local GameConfig = require(game.ReplicatedStorage.Shared.GameConfig)
 local PlayerDataService = require(script.Parent.PlayerDataService)
+local CouchSpawner = nil  -- Loaded after init to avoid circular deps
 
 local UpgradeHandler = {}
 
@@ -135,7 +136,12 @@ function UpgradeHandler.PurchaseCouchTier(player: Player, tierNumber: number): (
     
     PlayerDataService.UpdatePlayerData(player, "CouchTier", tierNumber)
     
-    -- Notify all clients to update couch visuals
+    -- Update the player's couch visuals directly via CouchSpawner
+    if CouchSpawner then
+        CouchSpawner.UpdateCouchTier(player, tierNumber)
+    end
+    
+    -- Also notify clients (for any client-side effects)
     if couchUpdateRemote then
         couchUpdateRemote:FireAllClients(player, tierNumber)
     end
@@ -239,6 +245,9 @@ end
 
 -- Initialize upgrade handling
 function UpgradeHandler.Initialize()
+    -- Load CouchSpawner (delayed to avoid circular deps)
+    CouchSpawner = require(script.Parent.CouchSpawner)
+    
     -- Create RemoteEvent for upgrades
     upgradeRemote = Instance.new("RemoteEvent")
     upgradeRemote.Name = "UpgradeRemote"

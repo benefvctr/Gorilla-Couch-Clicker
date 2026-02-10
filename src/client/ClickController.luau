@@ -32,17 +32,20 @@ local localPlayerData = {
 ClickController.OnAuraUpdated = nil
 ClickController.OnClickFeedback = nil
 ClickController.OnPrestigeUpdated = nil
+ClickController.OnRejection = nil  -- Called when click is rejected (not your couch)
 
--- Send click to server
-function ClickController.SendClick()
+-- Send click to server with the clicked part for ownership validation
+function ClickController.SendClick(clickedPart: BasePart?)
     if clickRemote then
-        clickRemote:FireServer()
+        clickRemote:FireServer(clickedPart)
     end
 end
 
 -- Handle click on the couch
-function ClickController.OnCouchClick(couchModel: Model)
-    ClickController.SendClick()
+function ClickController.OnCouchClick(couchModel: Model, clickedPart: BasePart?)
+    -- Use primary part if no specific part provided
+    local partToSend = clickedPart or couchModel.PrimaryPart or couchModel:FindFirstChild("Seat")
+    ClickController.SendClick(partToSend)
     
     -- Visual feedback (bounce effect on couch)
     local primaryPart = couchModel.PrimaryPart or couchModel:FindFirstChild("Seat")
@@ -128,7 +131,20 @@ end
 
 -- Set up click detection for a couch model
 function ClickController.SetupCouchClickDetection(couchModel: Model)
-    -- Add ClickDetector to all parts in the couch
+    -- Check for existing ClickDetector (server may have added one)
+    local existingClickPart = couchModel:FindFirstChild("ClickPart")
+    if existingClickPart then
+        local detector = existingClickPart:FindFirstChild("ClickDetector")
+        if detector then
+            detector.MouseClick:Connect(function()
+                ClickController.OnCouchClick(couchModel, existingClickPart)
+            end)
+            print("[ClickController] Connected to existing ClickDetector for: " .. couchModel.Name)
+            return
+        end
+    end
+    
+    -- Add ClickDetector to all visible parts in the couch
     for _, part in couchModel:GetDescendants() do
         if part:IsA("BasePart") and part.Transparency < 1 then
             local existingDetector = part:FindFirstChild("ClickDetector")
@@ -139,7 +155,11 @@ function ClickController.SetupCouchClickDetection(couchModel: Model)
                 detector.Parent = part
                 
                 detector.MouseClick:Connect(function()
-                    ClickController.OnCouchClick(couchModel)
+                    ClickController.OnCouchClick(couchModel, part)
+                end)
+            else
+                existingDetector.MouseClick:Connect(function()
+                    ClickController.OnCouchClick(couchModel, part)
                 end)
             end
         end
@@ -148,22 +168,25 @@ function ClickController.SetupCouchClickDetection(couchModel: Model)
     print("[ClickController] Click detection set up for: " .. couchModel.Name)
 end
 
--- Find and set up the player's couch
+-- Check if a model is a couch (has OwnerId attribute)
+local function isCouch(model: Model): boolean
+    return model:GetAttribute("OwnerId") ~= nil
+end
+
+-- Find and set up click detection for all couches
 function ClickController.FindPlayerCouch()
-    -- Look for a model named "GorillaCouch" in workspace
-    local couch = workspace:FindFirstChild("GorillaCouch") 
-        or workspace:FindFirstChild("Couch")
-        or workspace:FindFirstChild("PlayerCouch")
-    
-    if couch and couch:IsA("Model") then
-        ClickController.SetupCouchClickDetection(couch)
-        return couch
+    -- Set up existing couches
+    for _, child in workspace:GetChildren() do
+        if child:IsA("Model") and isCouch(child) then
+            ClickController.SetupCouchClickDetection(child)
+        end
     end
     
-    -- If no couch found, wait for one to be added
+    -- Watch for new couches being added (when players join)
     workspace.ChildAdded:Connect(function(child)
-        if (child.Name == "GorillaCouch" or child.Name == "Couch" or child.Name == "PlayerCouch") 
-            and child:IsA("Model") then
+        if child:IsA("Model") and isCouch(child) then
+            -- Small delay to ensure model is fully loaded
+            task.wait(0.1)
             ClickController.SetupCouchClickDetection(child)
         end
     end)
@@ -171,15 +194,20 @@ function ClickController.FindPlayerCouch()
     return nil
 end
 
--- Update couch visuals when tier changes
-function ClickController.UpdateCouchVisuals(tierNumber: number)
-    local couch = workspace:FindFirstChild("GorillaCouch") 
-        or workspace:FindFirstChild("Couch")
-        or workspace:FindFirstChild("PlayerCouch")
-    
-    if couch and couch:IsA("Model") then
-        CouchVisuals.ApplyTier(couch, tierNumber)
-        print("[ClickController] Updated couch to tier " .. tierNumber)
+-- Update couch visuals when tier changes (for a specific player's couch)
+function ClickController.UpdateCouchVisuals(ownerPlayer: Player?, tierNumber: number)
+    -- Find the couch belonging to the owner
+    for _, child in workspace:GetChildren() do
+        if child:IsA("Model") and child:GetAttribute("OwnerId") then
+            local ownerId = child:GetAttribute("OwnerId")
+            -- If no owner specified, update local player's couch
+            local targetId = ownerPlayer and ownerPlayer.UserId or player.UserId
+            if ownerId == targetId then
+                CouchVisuals.ApplyTier(child, tierNumber)
+                print("[ClickController] Updated couch to tier " .. tierNumber)
+                return
+            end
+        end
     end
 end
 
@@ -189,6 +217,7 @@ function ClickController.Initialize()
     clickRemote = ReplicatedStorage:WaitForChild("ClickRemote", 10)
     updateRemote = ReplicatedStorage:WaitForChild("UpdateRemote", 10)
     local couchUpdateRemote = ReplicatedStorage:WaitForChild("CouchUpdateRemote", 10)
+    local rejectRemote = ReplicatedStorage:WaitForChild("ClickRejectRemote", 10)
     
     if not clickRemote or not updateRemote then
         warn("[ClickController] Failed to find remote events!")
@@ -199,6 +228,15 @@ function ClickController.Initialize()
     updateRemote.OnClientEvent:Connect(function(data)
         ClickController.OnServerUpdate(data)
     end)
+    
+    -- Listen for click rejection messages
+    if rejectRemote then
+        rejectRemote.OnClientEvent:Connect(function(message)
+            if ClickController.OnRejection then
+                ClickController.OnRejection(message)
+            end
+        end)
+    end
     
     -- Listen for couch tier updates
     if couchUpdateRemote then
