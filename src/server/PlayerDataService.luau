@@ -14,7 +14,28 @@ local PlayerDataService = {}
 
 -- Data store reference
 local DATA_STORE_NAME = "GorillaCouchClicker_v2"  -- v2 for Aura update
-local playerDataStore = DataStoreService:GetDataStore(DATA_STORE_NAME)
+local playerDataStore = nil
+
+-- Check if we can use DataStore (only works in published games or with API access)
+local isStudio = RunService:IsStudio()
+local canUseDataStore = false
+
+local function initDataStore()
+    local success, result = pcall(function()
+        return DataStoreService:GetDataStore(DATA_STORE_NAME)
+    end)
+    
+    if success then
+        playerDataStore = result
+        canUseDataStore = true
+        print("[PlayerData] DataStore connected successfully")
+    else
+        canUseDataStore = false
+        warn("[PlayerData] DataStore not available (game not published?) - using local data only")
+    end
+end
+
+initDataStore()
 
 -- Cache of active player data (in-memory)
 local playerDataCache = {}
@@ -42,6 +63,13 @@ end
 
 -- Load player data from DataStore
 function PlayerDataService.LoadPlayerData(player: Player): table
+    -- If DataStore not available, just use defaults
+    if not canUseDataStore or not playerDataStore then
+        playerDataCache[player.UserId] = deepCopy(GameConfig.DefaultPlayerData)
+        print("[PlayerData] Created local data for " .. player.Name .. " (DataStore unavailable)")
+        return playerDataCache[player.UserId]
+    end
+    
     local dataKey = getDataKey(player)
     local success, data = pcall(function()
         return playerDataStore:GetAsync(dataKey)
@@ -72,8 +100,9 @@ function PlayerDataService.LoadPlayerData(player: Player): table
         end
     else
         warn("[PlayerData] Failed to load data for " .. player.Name .. ": " .. tostring(data))
-        -- Return defaults but don't cache (so we don't overwrite real data)
-        return deepCopy(GameConfig.DefaultPlayerData)
+        -- Use defaults
+        playerDataCache[player.UserId] = deepCopy(GameConfig.DefaultPlayerData)
+        return playerDataCache[player.UserId]
     end
 end
 
@@ -83,6 +112,12 @@ function PlayerDataService.SavePlayerData(player: Player): boolean
     if not data then
         warn("[PlayerData] No cached data for " .. player.Name)
         return false
+    end
+    
+    -- If DataStore not available, skip saving
+    if not canUseDataStore or not playerDataStore then
+        print("[PlayerData] Skipping save for " .. player.Name .. " (DataStore unavailable)")
+        return true  -- Return true so game doesn't think it failed
     end
     
     local dataKey = getDataKey(player)
