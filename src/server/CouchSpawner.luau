@@ -16,6 +16,9 @@ local CouchVisuals = require(game.ReplicatedStorage.Shared.CouchVisuals)
 
 local CouchSpawner = {}
 
+-- ⚠️ DEBUG: Set to true to SEE the click hitbox (green transparent box)
+local DEBUG_SHOW_HITBOX = true  -- Change to false when done testing!
+
 -- Store player couches
 local playerCouches = {}
 
@@ -25,6 +28,39 @@ local CENTER_POSITION = Vector3.new(0, 0, 0)
 
 -- Template couch (loaded on init)
 local couchTemplate = nil
+
+-- Calculate bounding box of a model
+local function getModelBoundingBox(model: Model): (Vector3, Vector3)
+    local minPos = Vector3.new(math.huge, math.huge, math.huge)
+    local maxPos = Vector3.new(-math.huge, -math.huge, -math.huge)
+    
+    for _, part in model:GetDescendants() do
+        if part:IsA("BasePart") then
+            local halfSize = part.Size / 2
+            local partMin = part.Position - halfSize
+            local partMax = part.Position + halfSize
+            
+            minPos = Vector3.new(
+                math.min(minPos.X, partMin.X),
+                math.min(minPos.Y, partMin.Y),
+                math.min(minPos.Z, partMin.Z)
+            )
+            maxPos = Vector3.new(
+                math.max(maxPos.X, partMax.X),
+                math.max(maxPos.Y, partMax.Y),
+                math.max(maxPos.Z, partMax.Z)
+            )
+        end
+    end
+    
+    local center = (minPos + maxPos) / 2
+    local size = maxPos - minPos
+    
+    -- Add some padding
+    size = size + Vector3.new(2, 2, 2)
+    
+    return center, size
+end
 
 -- Get spawn position for player (arranged in a circle)
 local function getSpawnPosition(playerIndex: number, totalPlayers: number): Vector3
@@ -145,15 +181,27 @@ local function createCouchModel(player: Player, position: Vector3): Model
     end
     
     if not hasClickDetector then
-        -- Add invisible click part covering the couch
+        -- Calculate bounding box to auto-size the click area
+        local center, size = getModelBoundingBox(couch)
+        
+        -- Add click part covering the entire couch
         local clickPart = Instance.new("Part")
         clickPart.Name = "ClickPart"
-        clickPart.Size = Vector3.new(10, 8, 6)
-        clickPart.Position = position + Vector3.new(0, 3, 0)
+        clickPart.Size = size
+        clickPart.Position = center
         clickPart.Anchored = true
-        clickPart.Transparency = 1
         clickPart.CanCollide = false
         clickPart.Parent = couch
+        
+        -- Debug mode: show hitbox as green transparent box
+        if DEBUG_SHOW_HITBOX then
+            clickPart.Transparency = 0.7
+            clickPart.Color = Color3.fromRGB(0, 255, 0)
+            clickPart.Material = Enum.Material.Neon
+            print("[CouchSpawner] DEBUG: Hitbox visible - Size:", size, "Center:", center)
+        else
+            clickPart.Transparency = 1
+        end
         
         local clickDetector = Instance.new("ClickDetector")
         clickDetector.MaxActivationDistance = 20
