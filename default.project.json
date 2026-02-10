@@ -31,36 +31,115 @@
         "$className": "Part",
         "$properties": {
           "Anchored": true,
-          "Color": [
-            0.38823,
-            0.37254,
-            0.38823
-          ],
+          "Color": [0.2, 0.6, 0.3],
+          "Material": "Grass",
           "Locked": true,
-          "Position": [
-            0,
-            -10,
-            0
-          ],
-          "Size": [
-            512,
-            20,
-            512
-          ]
+          "Position": [0, -10, 0],
+          "Size": [512, 20, 512]
+        }
+      },
+      "GorillaCouch": {
+        "$className": "Model",
+        "$properties": {
+          "PrimaryPart": "Seat"
+        },
+        "Seat": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "Seat",
+            "Anchored": true,
+            "Color": [0.545, 0.353, 0.169],
+            "Material": "Fabric",
+            "Position": [0, 2, 0],
+            "Size": [8, 2, 4]
+          }
+        },
+        "Backrest": {
+          "$className": "Part",
+          "$properties": {
+            "Anchored": true,
+            "Color": [0.545, 0.353, 0.169],
+            "Material": "Fabric",
+            "Position": [0, 4, -1.5],
+            "Size": [8, 4, 1]
+          }
+        },
+        "LeftArm": {
+          "$className": "Part",
+          "$properties": {
+            "Anchored": true,
+            "Color": [0.545, 0.353, 0.169],
+            "Material": "Fabric",
+            "Position": [-4, 3, 0],
+            "Size": [1, 3, 4]
+          }
+        },
+        "RightArm": {
+          "$className": "Part",
+          "$properties": {
+            "Anchored": true,
+            "Color": [0.545, 0.353, 0.169],
+            "Material": "Fabric",
+            "Position": [4, 3, 0],
+            "Size": [1, 3, 4]
+          }
+        },
+        "GorillaBody": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "GorillaBody",
+            "Anchored": true,
+            "Color": [0.2, 0.2, 0.2],
+            "Material": "SmoothPlastic",
+            "Shape": "Ball",
+            "Position": [0, 5, 0],
+            "Size": [3, 3, 3]
+          }
+        },
+        "GorillaHead": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "GorillaHead",
+            "Anchored": true,
+            "Color": [0.25, 0.25, 0.25],
+            "Material": "SmoothPlastic",
+            "Shape": "Ball",
+            "Position": [0, 7, 0.5],
+            "Size": [2, 2, 2]
+          }
+        },
+        "ClickPrompt": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "ClickPrompt",
+            "Anchored": true,
+            "Transparency": 1,
+            "CanCollide": false,
+            "Position": [0, 9, 0],
+            "Size": [1, 1, 1]
+          }
         }
       }
     },
     "Lighting": {
       "$properties": {
-        "Ambient": [
-          0,
-          0,
-          0
-        ],
+        "Ambient": [0.3, 0.3, 0.35],
         "Brightness": 2,
         "GlobalShadows": true,
         "Outlines": false,
-        "Technology": "Voxel"
+        "Technology": "ShadowMap",
+        "ClockTime": 14
+      },
+      "Sky": {
+        "$className": "Sky",
+        "$properties": {
+          "SkyboxBk": "rbxassetid://1419912548",
+          "SkyboxDn": "rbxassetid://1419912448",
+          "SkyboxFt": "rbxassetid://1419912616",
+          "SkyboxLf": "rbxassetid://1419912684",
+          "SkyboxRt": "rbxassetid://1419912400",
+          "SkyboxUp": "rbxassetid://1419912372"
+        }
       }
     },
     "SoundService": {

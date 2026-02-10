@@ -13,7 +13,7 @@ local GameConfig = require(game.ReplicatedStorage.Shared.GameConfig)
 local PlayerDataService = {}
 
 -- Data store reference
-local DATA_STORE_NAME = "GorillaCouchClicker_v1"
+local DATA_STORE_NAME = "GorillaCouchClicker_v2"  -- v2 for Aura update
 local playerDataStore = DataStoreService:GetDataStore(DATA_STORE_NAME)
 
 -- Cache of active player data (in-memory)
@@ -54,8 +54,15 @@ function PlayerDataService.LoadPlayerData(player: Player): table
             for key, value in pairs(data) do
                 mergedData[key] = value
             end
+            
+            -- Migration: Convert old Points to Aura if needed
+            if data.Points and not data.Aura then
+                mergedData.Aura = data.Points
+                mergedData.TotalAuraEarned = data.TotalPointsEarned or 0
+            end
+            
             playerDataCache[player.UserId] = mergedData
-            print("[PlayerData] Loaded data for " .. player.Name)
+            print("[PlayerData] Loaded data for " .. player.Name .. " (Prestige: " .. mergedData.PrestigeLevel .. ")")
             return mergedData
         else
             -- New player, use defaults
@@ -105,29 +112,36 @@ function PlayerDataService.UpdatePlayerData(player: Player, key: string, value: 
     end
 end
 
--- Add points to a player
-function PlayerDataService.AddPoints(player: Player, amount: number)
+-- Add aura to a player (applies prestige multiplier automatically)
+function PlayerDataService.AddAura(player: Player, baseAmount: number): number
     local data = playerDataCache[player.UserId]
-    if data then
-        data.Points = data.Points + amount
-        data.TotalPointsEarned = data.TotalPointsEarned + amount
-    end
+    if not data then return 0 end
+    
+    -- Apply prestige multiplier
+    local prestigeMultiplier = GameConfig.GetPrestigeMultiplier(data.PrestigeLevel)
+    local actualAmount = math.floor(baseAmount * prestigeMultiplier)
+    
+    data.Aura = data.Aura + actualAmount
+    data.TotalAuraEarned = data.TotalAuraEarned + actualAmount
+    data.LifetimeAura = data.LifetimeAura + actualAmount
+    
+    return actualAmount
 end
 
--- Spend points (returns true if successful, false if not enough)
-function PlayerDataService.SpendPoints(player: Player, amount: number): boolean
+-- Spend aura (returns true if successful, false if not enough)
+function PlayerDataService.SpendAura(player: Player, amount: number): boolean
     local data = playerDataCache[player.UserId]
-    if data and data.Points >= amount then
-        data.Points = data.Points - amount
+    if data and data.Aura >= amount then
+        data.Aura = data.Aura - amount
         return true
     end
     return false
 end
 
--- Get current points
-function PlayerDataService.GetPoints(player: Player): number
+-- Get current aura
+function PlayerDataService.GetAura(player: Player): number
     local data = playerDataCache[player.UserId]
-    return data and data.Points or 0
+    return data and data.Aura or 0
 end
 
 -- Increment click counter
@@ -136,6 +150,44 @@ function PlayerDataService.IncrementClicks(player: Player)
     if data then
         data.TotalClicks = data.TotalClicks + 1
     end
+end
+
+-- Perform prestige reset
+function PlayerDataService.PerformPrestige(player: Player): boolean
+    local data = playerDataCache[player.UserId]
+    if not data then return false end
+    
+    -- Check if can prestige
+    if not GameConfig.CanPrestige(data) then
+        return false
+    end
+    
+    -- Store what to keep
+    local keptAccessories = GameConfig.Prestige.KeepAccessories and data.Accessories or {}
+    local keptCouchTier = GameConfig.Prestige.KeepCouchTier and data.CouchTier or 1
+    
+    -- Increment prestige
+    local newPrestigeLevel = data.PrestigeLevel + 1
+    local totalPrestiges = data.TotalPrestiges + 1
+    local lifetimeAura = data.LifetimeAura
+    local totalClicks = data.TotalClicks
+    
+    -- Reset to defaults
+    local freshData = deepCopy(GameConfig.DefaultPlayerData)
+    
+    -- Restore persistent data
+    freshData.PrestigeLevel = newPrestigeLevel
+    freshData.TotalPrestiges = totalPrestiges
+    freshData.LifetimeAura = lifetimeAura
+    freshData.TotalClicks = totalClicks
+    freshData.Accessories = keptAccessories
+    freshData.CouchTier = keptCouchTier
+    
+    -- Update cache
+    playerDataCache[player.UserId] = freshData
+    
+    print("[PlayerData] " .. player.Name .. " prestiged to level " .. newPrestigeLevel)
+    return true
 end
 
 -- Initialize the service

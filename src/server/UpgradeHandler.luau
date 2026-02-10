@@ -2,6 +2,7 @@
     UpgradeHandler.luau
     Handles upgrade purchases for players
     Click power, auto-clickers, multipliers, couch tiers, accessories
+    All costs scale with prestige level
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,7 +24,15 @@ local UpgradeTypes = {
     MULTIPLIER = "Multiplier",
     COUCH_TIER = "CouchTier",
     ACCESSORY = "Accessory",
+    PRESTIGE = "Prestige",
 }
+
+-- Get scaled cost for an upgrade
+local function getScaledCost(baseCost: number, player: Player): number
+    local data = PlayerDataService.GetPlayerData(player)
+    local prestigeLevel = data and data.PrestigeLevel or 0
+    return GameConfig.GetScaledCost(baseCost, prestigeLevel)
+end
 
 -- Purchase click power upgrade
 function UpgradeHandler.PurchaseClickPower(player: Player): (boolean, string)
@@ -40,8 +49,9 @@ function UpgradeHandler.PurchaseClickPower(player: Player): (boolean, string)
         return false, "Max level reached"
     end
     
-    if not PlayerDataService.SpendPoints(player, nextUpgrade.Cost) then
-        return false, "Not enough points"
+    local cost = getScaledCost(nextUpgrade.BaseCost, player)
+    if not PlayerDataService.SpendAura(player, cost) then
+        return false, "Not enough aura"
     end
     
     PlayerDataService.UpdatePlayerData(player, "ClickPower", nextLevel)
@@ -63,8 +73,9 @@ function UpgradeHandler.PurchaseAutoClicker(player: Player): (boolean, string)
         return false, "Max level reached"
     end
     
-    if not PlayerDataService.SpendPoints(player, nextUpgrade.Cost) then
-        return false, "Not enough points"
+    local cost = getScaledCost(nextUpgrade.BaseCost, player)
+    if not PlayerDataService.SpendAura(player, cost) then
+        return false, "Not enough aura"
     end
     
     PlayerDataService.UpdatePlayerData(player, "AutoClickerLevel", nextLevel)
@@ -86,8 +97,9 @@ function UpgradeHandler.PurchaseMultiplier(player: Player): (boolean, string)
         return false, "Max level reached"
     end
     
-    if not PlayerDataService.SpendPoints(player, nextUpgrade.Cost) then
-        return false, "Not enough points"
+    local cost = getScaledCost(nextUpgrade.BaseCost, player)
+    if not PlayerDataService.SpendAura(player, cost) then
+        return false, "Not enough aura"
     end
     
     PlayerDataService.UpdatePlayerData(player, "MultiplierLevel", nextLevel)
@@ -115,8 +127,9 @@ function UpgradeHandler.PurchaseCouchTier(player: Player, tierNumber: number): (
         return false, "Must purchase previous tier first"
     end
     
-    if not PlayerDataService.SpendPoints(player, tierData.Cost) then
-        return false, "Not enough points"
+    local cost = getScaledCost(tierData.BaseCost, player)
+    if not PlayerDataService.SpendAura(player, cost) then
+        return false, "Not enough aura"
     end
     
     PlayerDataService.UpdatePlayerData(player, "CouchTier", tierNumber)
@@ -151,14 +164,37 @@ function UpgradeHandler.PurchaseAccessory(player: Player, accessoryId: string): 
         end
     end
     
-    if not PlayerDataService.SpendPoints(player, accessoryData.Cost) then
-        return false, "Not enough points"
+    local cost = getScaledCost(accessoryData.BaseCost, player)
+    if not PlayerDataService.SpendAura(player, cost) then
+        return false, "Not enough aura"
     end
     
     -- Add to owned accessories
     table.insert(ownedAccessories, accessoryId)
     PlayerDataService.UpdatePlayerData(player, "Accessories", ownedAccessories)
     return true, "Unlocked " .. accessoryData.Name
+end
+
+-- Perform prestige
+function UpgradeHandler.PerformPrestige(player: Player): (boolean, string)
+    local data = PlayerDataService.GetPlayerData(player)
+    if not data then
+        return false, "Data not loaded"
+    end
+    
+    if not GameConfig.CanPrestige(data) then
+        local requirement = GameConfig.GetPrestigeRequirement(data.PrestigeLevel)
+        return false, "Need " .. requirement .. " total aura earned this prestige"
+    end
+    
+    local success = PlayerDataService.PerformPrestige(player)
+    if success then
+        local newData = PlayerDataService.GetPlayerData(player)
+        local newMultiplier = GameConfig.GetPrestigeMultiplier(newData.PrestigeLevel)
+        return true, "Prestige " .. newData.PrestigeLevel .. "! Now earning " .. newMultiplier .. "x aura!"
+    end
+    
+    return false, "Prestige failed"
 end
 
 -- Process upgrade request
@@ -175,6 +211,8 @@ function UpgradeHandler.ProcessUpgrade(player: Player, upgradeType: string, upgr
         success, message = UpgradeHandler.PurchaseCouchTier(player, upgradeData)
     elseif upgradeType == UpgradeTypes.ACCESSORY then
         success, message = UpgradeHandler.PurchaseAccessory(player, upgradeData)
+    elseif upgradeType == UpgradeTypes.PRESTIGE then
+        success, message = UpgradeHandler.PerformPrestige(player)
     else
         success, message = false, "Unknown upgrade type"
     end

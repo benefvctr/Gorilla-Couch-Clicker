@@ -19,12 +19,15 @@ local updateRemote = nil
 
 -- Current player data (cached locally)
 local localPlayerData = {
-    Points = 0,
+    Aura = 0,
+    PrestigeLevel = 0,
+    TotalAuraEarned = 0,
 }
 
--- Callback for when points update (set by UIController)
-ClickController.OnPointsUpdated = nil
+-- Callback for when aura updates (set by UIController)
+ClickController.OnAuraUpdated = nil
 ClickController.OnClickFeedback = nil
+ClickController.OnPrestigeUpdated = nil
 
 -- Send click to server
 function ClickController.SendClick()
@@ -38,21 +41,20 @@ function ClickController.OnCouchClick(couchModel: Model)
     ClickController.SendClick()
     
     -- Visual feedback (bounce effect on couch)
-    if couchModel and couchModel.PrimaryPart then
-        local part = couchModel.PrimaryPart
-        local originalSize = part.Size
-        local originalPosition = part.Position
+    local primaryPart = couchModel.PrimaryPart or couchModel:FindFirstChild("Seat")
+    if primaryPart then
+        local originalCFrame = primaryPart.CFrame
         
-        -- Quick scale up and down
-        local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local scaleTween = TweenService:Create(part, tweenInfo, {
-            Size = originalSize * 1.05,
+        -- Quick bounce up
+        local tweenInfo = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local bounceTween = TweenService:Create(primaryPart, tweenInfo, {
+            CFrame = originalCFrame * CFrame.new(0, 0.3, 0)
         })
-        scaleTween:Play()
+        bounceTween:Play()
         
-        task.delay(0.1, function()
-            local returnTween = TweenService:Create(part, tweenInfo, {
-                Size = originalSize,
+        task.delay(0.08, function()
+            local returnTween = TweenService:Create(primaryPart, tweenInfo, {
+                CFrame = originalCFrame
             })
             returnTween:Play()
         end)
@@ -61,40 +63,56 @@ end
 
 -- Handle update from server
 function ClickController.OnServerUpdate(data)
-    if data.Points then
-        localPlayerData.Points = data.Points
-        if ClickController.OnPointsUpdated then
-            ClickController.OnPointsUpdated(data.Points)
+    if data.Aura then
+        localPlayerData.Aura = data.Aura
+        if ClickController.OnAuraUpdated then
+            ClickController.OnAuraUpdated(data.Aura)
         end
     end
     
-    -- Click feedback (floating +points)
-    if data.ClickPoints and ClickController.OnClickFeedback then
-        ClickController.OnClickFeedback(data.ClickPoints, data.IsLucky)
+    if data.PrestigeLevel then
+        local prestigeChanged = localPlayerData.PrestigeLevel ~= data.PrestigeLevel
+        localPlayerData.PrestigeLevel = data.PrestigeLevel
+        if prestigeChanged and ClickController.OnPrestigeUpdated then
+            ClickController.OnPrestigeUpdated(data.PrestigeLevel)
+        end
     end
     
-    -- Auto-income feedback
-    if data.AutoIncome and data.AutoIncome > 0 then
-        if ClickController.OnPointsUpdated then
-            ClickController.OnPointsUpdated(data.Points)
-        end
+    if data.TotalAuraEarned then
+        localPlayerData.TotalAuraEarned = data.TotalAuraEarned
+    end
+    
+    -- Click feedback (floating +aura)
+    if data.ClickAura and ClickController.OnClickFeedback then
+        ClickController.OnClickFeedback(data.ClickAura, data.IsLucky)
     end
 end
 
--- Get current points
-function ClickController.GetPoints(): number
-    return localPlayerData.Points
+-- Get current aura
+function ClickController.GetAura(): number
+    return localPlayerData.Aura
+end
+
+-- Get current prestige level
+function ClickController.GetPrestigeLevel(): number
+    return localPlayerData.PrestigeLevel
+end
+
+-- Get total aura earned this prestige
+function ClickController.GetTotalAuraEarned(): number
+    return localPlayerData.TotalAuraEarned
 end
 
 -- Set up click detection for a couch model
 function ClickController.SetupCouchClickDetection(couchModel: Model)
     -- Add ClickDetector to all parts in the couch
     for _, part in couchModel:GetDescendants() do
-        if part:IsA("BasePart") then
+        if part:IsA("BasePart") and part.Transparency < 1 then
             local existingDetector = part:FindFirstChild("ClickDetector")
             if not existingDetector then
                 local detector = Instance.new("ClickDetector")
-                detector.MaxActivationDistance = 20
+                detector.MaxActivationDistance = 32
+                detector.CursorIcon = "rbxasset://SystemCursors/PointingHand"
                 detector.Parent = part
                 
                 detector.MouseClick:Connect(function()
@@ -103,27 +121,27 @@ function ClickController.SetupCouchClickDetection(couchModel: Model)
             end
         end
     end
+    
+    print("[ClickController] Click detection set up for: " .. couchModel.Name)
 end
 
 -- Find and set up the player's couch
 function ClickController.FindPlayerCouch()
-    -- Look for a model named "Couch" or "GorillaCouuch" in workspace
-    local couch = workspace:FindFirstChild("Couch") 
-        or workspace:FindFirstChild("GorillaCouch")
+    -- Look for a model named "GorillaCouch" in workspace
+    local couch = workspace:FindFirstChild("GorillaCouch") 
+        or workspace:FindFirstChild("Couch")
         or workspace:FindFirstChild("PlayerCouch")
     
     if couch and couch:IsA("Model") then
         ClickController.SetupCouchClickDetection(couch)
-        print("[ClickController] Found and set up couch: " .. couch.Name)
         return couch
     end
     
     -- If no couch found, wait for one to be added
     workspace.ChildAdded:Connect(function(child)
-        if (child.Name == "Couch" or child.Name == "GorillaCouch" or child.Name == "PlayerCouch") 
+        if (child.Name == "GorillaCouch" or child.Name == "Couch" or child.Name == "PlayerCouch") 
             and child:IsA("Model") then
             ClickController.SetupCouchClickDetection(child)
-            print("[ClickController] Couch added and set up: " .. child.Name)
         end
     end)
     

@@ -1,7 +1,7 @@
 --[[
     ClickHandler.luau
     Handles click events from players
-    Calculates points based on upgrades and multipliers
+    Calculates aura based on upgrades, multipliers, and prestige
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,8 +19,8 @@ local lastClickTime = {}
 local clickRemote = nil
 local updateRemote = nil
 
--- Calculate points for a click
-function ClickHandler.CalculateClickPoints(player: Player): (number, boolean)
+-- Calculate aura for a click (before prestige multiplier)
+function ClickHandler.CalculateBaseClickAura(player: Player): (number, boolean)
     local data = PlayerDataService.GetPlayerData(player)
     if not data then
         return 0, false
@@ -29,22 +29,21 @@ function ClickHandler.CalculateClickPoints(player: Player): (number, boolean)
     -- Get click power from upgrades
     local clickPowerLevel = data.ClickPower or 1
     local clickPowerData = GameConfig.ClickPowerUpgrades[clickPowerLevel]
-    local basePoints = clickPowerData and clickPowerData.Power or 1
+    local baseAura = clickPowerData and clickPowerData.Power or 1
     
     -- Get multiplier from upgrades
     local multiplierLevel = data.MultiplierLevel or 0
     local multiplierData = GameConfig.MultiplierUpgrades[multiplierLevel + 1]
-    local multiplier = multiplierData and multiplierData.Multiplier or 1
+    local upgradeMultiplier = multiplierData and multiplierData.Multiplier or 1
     
     -- Check for lucky click
     local isLucky = math.random() < GameConfig.LuckyClickChance
-    if isLucky then
-        multiplier = multiplier * GameConfig.LuckyClickMultiplier
-    end
+    local luckyMultiplier = isLucky and GameConfig.LuckyClickMultiplier or 1
     
-    local totalPoints = math.floor(basePoints * multiplier)
+    -- Calculate base (before prestige multiplier, which is applied in AddAura)
+    local totalBase = math.floor(baseAura * upgradeMultiplier * luckyMultiplier)
     
-    return totalPoints, isLucky
+    return totalBase, isLucky
 end
 
 -- Process a click from a player
@@ -58,25 +57,30 @@ function ClickHandler.ProcessClick(player: Player): (number, boolean)?
     end
     lastClickTime[player.UserId] = currentTime
     
-    -- Calculate and award points
-    local points, isLucky = ClickHandler.CalculateClickPoints(player)
+    -- Calculate base aura (prestige multiplier applied in AddAura)
+    local baseAura, isLucky = ClickHandler.CalculateBaseClickAura(player)
     
-    if points > 0 then
-        PlayerDataService.AddPoints(player, points)
+    if baseAura > 0 then
+        -- AddAura applies prestige multiplier and returns actual amount
+        local actualAura = PlayerDataService.AddAura(player, baseAura)
         PlayerDataService.IncrementClicks(player)
         
         -- Send updated data to client
         local data = PlayerDataService.GetPlayerData(player)
         if data and updateRemote then
             updateRemote:FireClient(player, {
-                Points = data.Points,
-                ClickPoints = points,
+                Aura = data.Aura,
+                ClickAura = actualAura,
                 IsLucky = isLucky,
+                PrestigeLevel = data.PrestigeLevel,
+                TotalAuraEarned = data.TotalAuraEarned,
             })
         end
+        
+        return actualAura, isLucky
     end
     
-    return points, isLucky
+    return 0, false
 end
 
 -- Initialize click handling
