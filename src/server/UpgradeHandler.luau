@@ -16,6 +16,7 @@ local UpgradeHandler = {}
 -- Remote events
 local upgradeRemote = nil
 local upgradeResponseRemote = nil
+local couchUpdateRemote = nil
 
 -- Upgrade types
 local UpgradeTypes = {
@@ -133,6 +134,12 @@ function UpgradeHandler.PurchaseCouchTier(player: Player, tierNumber: number): (
     end
     
     PlayerDataService.UpdatePlayerData(player, "CouchTier", tierNumber)
+    
+    -- Notify all clients to update couch visuals
+    if couchUpdateRemote then
+        couchUpdateRemote:FireAllClients(player, tierNumber)
+    end
+    
     return true, "Unlocked " .. tierData.Name
 end
 
@@ -240,6 +247,10 @@ function UpgradeHandler.Initialize()
     upgradeResponseRemote = Instance.new("RemoteEvent")
     upgradeResponseRemote.Name = "UpgradeResponseRemote"
     upgradeResponseRemote.Parent = ReplicatedStorage
+    
+    couchUpdateRemote = Instance.new("RemoteEvent")
+    couchUpdateRemote.Name = "CouchUpdateRemote"
+    couchUpdateRemote.Parent = ReplicatedStorage
     
     -- Listen for upgrade requests
     upgradeRemote.OnServerEvent:Connect(function(player, upgradeType, upgradeData)

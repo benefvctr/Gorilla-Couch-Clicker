@@ -46,6 +46,17 @@ function UIController.FormatNumber(num: number): string
     end
 end
 
+-- Cache player data from server updates
+function UIController.CachePlayerData(data)
+    if not cachedPlayerData then
+        cachedPlayerData = {}
+    end
+    -- Merge new data into cached data
+    for key, value in pairs(data) do
+        cachedPlayerData[key] = value
+    end
+end
+
 -- Create the main UI
 function UIController.CreateUI()
     -- Main ScreenGui
@@ -159,26 +170,72 @@ function UIController.CreateUI()
         UIController.ToggleShop()
     end)
     
-    -- Prestige Button (bottom left)
+    -- Prestige Button (bottom left) with progress bar
+    local prestigeContainer = Instance.new("Frame")
+    prestigeContainer.Name = "PrestigeContainer"
+    prestigeContainer.Size = UDim2.new(0, 200, 0, 75)
+    prestigeContainer.Position = UDim2.new(0, 20, 1, -95)
+    prestigeContainer.BackgroundColor3 = Color3.fromRGB(30, 20, 10)
+    prestigeContainer.Parent = mainGui
+    
+    local prestigeContainerCorner = Instance.new("UICorner")
+    prestigeContainerCorner.CornerRadius = UDim.new(0, 12)
+    prestigeContainerCorner.Parent = prestigeContainer
+    
+    local prestigeContainerStroke = Instance.new("UIStroke")
+    prestigeContainerStroke.Color = Color3.fromRGB(150, 100, 30)
+    prestigeContainerStroke.Thickness = 2
+    prestigeContainerStroke.Parent = prestigeContainer
+    
     local prestigeButton = Instance.new("TextButton")
     prestigeButton.Name = "PrestigeButton"
-    prestigeButton.Size = UDim2.new(0, 130, 0, 55)
-    prestigeButton.Position = UDim2.new(0, 20, 1, -75)
+    prestigeButton.Size = UDim2.new(1, -20, 0, 35)
+    prestigeButton.Position = UDim2.new(0, 10, 0, 5)
     prestigeButton.BackgroundColor3 = Color3.fromRGB(120, 80, 20)
     prestigeButton.Text = "⭐ PRESTIGE"
     prestigeButton.TextColor3 = Color3.fromRGB(255, 215, 0)
     prestigeButton.TextSize = 16
     prestigeButton.Font = Enum.Font.GothamBold
-    prestigeButton.Parent = mainGui
+    prestigeButton.Parent = prestigeContainer
     
     local prestigeBtnCorner = Instance.new("UICorner")
-    prestigeBtnCorner.CornerRadius = UDim.new(0, 12)
+    prestigeBtnCorner.CornerRadius = UDim.new(0, 8)
     prestigeBtnCorner.Parent = prestigeButton
     
-    local prestigeBtnStroke = Instance.new("UIStroke")
-    prestigeBtnStroke.Color = Color3.fromRGB(255, 180, 50)
-    prestigeBtnStroke.Thickness = 2
-    prestigeBtnStroke.Parent = prestigeButton
+    -- Progress bar background
+    local progressBg = Instance.new("Frame")
+    progressBg.Name = "ProgressBg"
+    progressBg.Size = UDim2.new(1, -20, 0, 12)
+    progressBg.Position = UDim2.new(0, 10, 0, 45)
+    progressBg.BackgroundColor3 = Color3.fromRGB(50, 30, 10)
+    progressBg.Parent = prestigeContainer
+    
+    local progressBgCorner = Instance.new("UICorner")
+    progressBgCorner.CornerRadius = UDim.new(0, 6)
+    progressBgCorner.Parent = progressBg
+    
+    -- Progress bar fill
+    local progressFill = Instance.new("Frame")
+    progressFill.Name = "ProgressFill"
+    progressFill.Size = UDim2.new(0, 0, 1, 0)
+    progressFill.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
+    progressFill.Parent = progressBg
+    
+    local progressFillCorner = Instance.new("UICorner")
+    progressFillCorner.CornerRadius = UDim.new(0, 6)
+    progressFillCorner.Parent = progressFill
+    
+    -- Progress text
+    local progressText = Instance.new("TextLabel")
+    progressText.Name = "ProgressText"
+    progressText.Size = UDim2.new(1, -20, 0, 15)
+    progressText.Position = UDim2.new(0, 10, 0, 58)
+    progressText.BackgroundTransparency = 1
+    progressText.Text = "0 / 100K"
+    progressText.TextColor3 = Color3.fromRGB(200, 150, 100)
+    progressText.TextSize = 10
+    progressText.Font = Enum.Font.Gotham
+    progressText.Parent = prestigeContainer
     
     prestigeButton.MouseButton1Click:Connect(function()
         if upgradeRemote then
@@ -303,6 +360,82 @@ function UIController.CreateSectionLabel(parent, text: string)
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Font = Enum.Font.GothamBold
     label.Parent = parent
+end
+
+-- Get next upgrade cost for a type
+function UIController.GetUpgradeCost(upgradeType: string, playerData): (number, string)
+    if not playerData then return 0, "---" end
+    
+    local prestigeLevel = playerData.PrestigeLevel or 0
+    
+    if upgradeType == "ClickPower" then
+        local currentLevel = playerData.ClickPower or 1
+        local nextUpgrade = GameConfig.ClickPowerUpgrades[currentLevel + 1]
+        if nextUpgrade then
+            local cost = GameConfig.GetScaledCost(nextUpgrade.BaseCost, prestigeLevel)
+            return cost, "✨ " .. UIController.FormatNumber(cost)
+        end
+        return 0, "MAX"
+    elseif upgradeType == "AutoClicker" then
+        local currentLevel = playerData.AutoClickerLevel or 0
+        local nextUpgrade = GameConfig.AutoClickerUpgrades[currentLevel + 2]
+        if nextUpgrade then
+            local cost = GameConfig.GetScaledCost(nextUpgrade.BaseCost, prestigeLevel)
+            return cost, "✨ " .. UIController.FormatNumber(cost)
+        end
+        return 0, "MAX"
+    elseif upgradeType == "Multiplier" then
+        local currentLevel = playerData.MultiplierLevel or 0
+        local nextUpgrade = GameConfig.MultiplierUpgrades[currentLevel + 2]
+        if nextUpgrade then
+            local cost = GameConfig.GetScaledCost(nextUpgrade.BaseCost, prestigeLevel)
+            return cost, "✨ " .. UIController.FormatNumber(cost)
+        end
+        return 0, "MAX"
+    end
+    
+    return 0, "---"
+end
+
+-- Update all shop prices based on current player data
+function UIController.UpdateShopPrices()
+    if not shopFrame or not cachedPlayerData then return end
+    
+    local scrollFrame = shopFrame:FindFirstChild("UpgradeList")
+    if not scrollFrame then return end
+    
+    -- Update power upgrades
+    for _, upgradeType in {"ClickPower", "AutoClicker", "Multiplier"} do
+        local button = scrollFrame:FindFirstChild(upgradeType .. "Button")
+        if button then
+            local costLabel = button:FindFirstChild("CostLabel")
+            if costLabel then
+                local _, costText = UIController.GetUpgradeCost(upgradeType, cachedPlayerData)
+                costLabel.Text = costText
+            end
+        end
+    end
+    
+    -- Update couch tier buttons
+    for i, tier in GameConfig.CouchTiers do
+        if i > 1 then
+            local button = scrollFrame:FindFirstChild("Tier" .. tier.Tier .. "Button")
+            if button then
+                local costLabel = button:FindFirstChild("CostLabel")
+                if costLabel then
+                    local owned = (cachedPlayerData.CouchTier or 1) >= tier.Tier
+                    if owned then
+                        costLabel.Text = "✅ OWNED"
+                        costLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                    else
+                        local cost = GameConfig.GetScaledCost(tier.BaseCost, cachedPlayerData.PrestigeLevel or 0)
+                        costLabel.Text = "✨ " .. UIController.FormatNumber(cost)
+                        costLabel.TextColor3 = Color3.fromRGB(200, 150, 255)
+                    end
+                end
+            end
+        end
+    end
 end
 
 -- Create an upgrade button
@@ -433,6 +566,10 @@ end
 function UIController.ToggleShop()
     if shopFrame then
         shopFrame.Visible = not shopFrame.Visible
+        if shopFrame.Visible then
+            -- Refresh prices when shop opens
+            UIController.UpdateShopPrices()
+        end
     end
 end
 
@@ -462,6 +599,43 @@ function UIController.UpdatePrestige(prestigeLevel: number)
     if prestigeMultLabel then
         local mult = GameConfig.GetPrestigeMultiplier(prestigeLevel)
         prestigeMultLabel.Text = "🚀 " .. mult .. "x Aura"
+    end
+end
+
+-- Update prestige progress bar
+function UIController.UpdatePrestigeProgress()
+    if not mainGui or not cachedPlayerData then return end
+    
+    local container = mainGui:FindFirstChild("PrestigeContainer")
+    if not container then return end
+    
+    local progressBg = container:FindFirstChild("ProgressBg")
+    local progressText = container:FindFirstChild("ProgressText")
+    if not progressBg or not progressText then return end
+    
+    local progressFill = progressBg:FindFirstChild("ProgressFill")
+    if not progressFill then return end
+    
+    local prestigeLevel = cachedPlayerData.PrestigeLevel or 0
+    local totalAuraEarned = cachedPlayerData.TotalAuraEarned or 0
+    local requirement = GameConfig.GetPrestigeRequirement(prestigeLevel)
+    
+    -- Calculate progress (0 to 1)
+    local progress = math.min(totalAuraEarned / requirement, 1)
+    
+    -- Update fill width
+    progressFill.Size = UDim2.new(progress, 0, 1, 0)
+    
+    -- Update text
+    progressText.Text = UIController.FormatNumber(totalAuraEarned) .. " / " .. UIController.FormatNumber(requirement)
+    
+    -- Change color when ready to prestige
+    if progress >= 1 then
+        progressFill.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        progressText.TextColor3 = Color3.fromRGB(100, 255, 100)
+    else
+        progressFill.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
+        progressText.TextColor3 = Color3.fromRGB(200, 150, 100)
     end
 end
 
@@ -523,14 +697,22 @@ function UIController.OnUpgradeResponse(data)
             end
         end
         
+        -- Update shop prices and prestige progress
+        UIController.UpdateShopPrices()
+        UIController.UpdatePrestigeProgress()
+        
         -- Show success message if it's a prestige
         if data.Message and string.find(data.Message, "Prestige") then
             UIController.ShowPrestigeEffect()
         end
     else
-        -- TODO: Show error notification
+        -- Show error notification
         warn("[UI] Upgrade failed: " .. tostring(data.Message))
     end
+    
+    -- Always update shop prices and prestige (even on failure, to refresh)
+    UIController.UpdateShopPrices()
+    UIController.UpdatePrestigeProgress()
 end
 
 -- Show prestige celebration effect

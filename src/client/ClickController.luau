@@ -80,6 +80,10 @@ function ClickController.OnServerUpdate(data)
     
     if data.TotalAuraEarned then
         localPlayerData.TotalAuraEarned = data.TotalAuraEarned
+        -- Notify UI to update prestige progress
+        if ClickController.OnProgressUpdated then
+            ClickController.OnProgressUpdated(localPlayerData)
+        end
     end
     
     -- Click feedback (floating +aura)
@@ -148,11 +152,24 @@ function ClickController.FindPlayerCouch()
     return nil
 end
 
+-- Update couch visuals when tier changes
+function ClickController.UpdateCouchVisuals(tierNumber: number)
+    local couch = workspace:FindFirstChild("GorillaCouch") 
+        or workspace:FindFirstChild("Couch")
+        or workspace:FindFirstChild("PlayerCouch")
+    
+    if couch and couch:IsA("Model") then
+        CouchVisuals.ApplyTier(couch, tierNumber)
+        print("[ClickController] Updated couch to tier " .. tierNumber)
+    end
+end
+
 -- Initialize click controller
 function ClickController.Initialize()
     -- Wait for remotes
     clickRemote = ReplicatedStorage:WaitForChild("ClickRemote", 10)
     updateRemote = ReplicatedStorage:WaitForChild("UpdateRemote", 10)
+    local couchUpdateRemote = ReplicatedStorage:WaitForChild("CouchUpdateRemote", 10)
     
     if not clickRemote or not updateRemote then
         warn("[ClickController] Failed to find remote events!")
@@ -163,6 +180,13 @@ function ClickController.Initialize()
     updateRemote.OnClientEvent:Connect(function(data)
         ClickController.OnServerUpdate(data)
     end)
+    
+    -- Listen for couch tier updates
+    if couchUpdateRemote then
+        couchUpdateRemote.OnClientEvent:Connect(function(player, tierNumber)
+            ClickController.UpdateCouchVisuals(tierNumber)
+        end)
+    end
     
     -- Set up couch click detection
     task.spawn(function()

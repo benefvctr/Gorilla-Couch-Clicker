@@ -51,4 +51,23 @@ if not success4 then
     warn("[Client] Failed to initialize UIController: " .. tostring(err4))
 end
 
+-- Connect ClickController callbacks to UIController
+ClickController.OnAuraUpdated = function(aura)
+    UIController.UpdateAura(aura)
+end
+
+ClickController.OnPrestigeUpdated = function(level)
+    UIController.UpdatePrestige(level)
+end
+
+ClickController.OnClickFeedback = function(aura, isLucky)
+    UIController.ShowClickFeedback(aura, isLucky)
+end
+
+ClickController.OnProgressUpdated = function(playerData)
+    -- Cache data in UI controller and update prestige progress
+    UIController.CachePlayerData(playerData)
+    UIController.UpdatePrestigeProgress()
+end
+
 print("[Client] Gorilla Couch Clicker client initialized! 🦍🛋️")
