@@ -9,7 +9,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(game.ReplicatedStorage.Shared.GameConfig)
+local ProductConfig = require(game.ReplicatedStorage.Shared.ProductConfig)
 local PlayerDataService = require(script.Parent.PlayerDataService)
+local GamePassService = nil  -- Loaded after init
 
 local AutoClickerService = {}
 
@@ -26,24 +28,43 @@ function AutoClickerService.CalculateBaseAutoIncome(player: Player): number
         return 0
     end
     
-    local autoClickerLevel = data.AutoClickerLevel or 0
-    if autoClickerLevel == 0 then
-        return 0
-    end
+    local baseIncome = 0
     
-    local autoClickerData = GameConfig.AutoClickerUpgrades[autoClickerLevel + 1]
-    if not autoClickerData then
-        return 0
+    -- Check for game pass auto clicker first
+    if GamePassService and GamePassService.HasAutoClickerPass(player) then
+        -- Game pass auto clicker: uses click power directly
+        local clickPowerLevel = data.ClickPower or 1
+        local clickPowerData = GameConfig.ClickPowerUpgrades[clickPowerLevel]
+        local clickPower = clickPowerData and clickPowerData.Power or 1
+        local clicksPerSecond = ProductConfig.GamePasses.AutoClicker.ClicksPerSecond
+        baseIncome = clickPower * clicksPerSecond
+    else
+        -- Regular upgrade-based auto clicker
+        local autoClickerLevel = data.AutoClickerLevel or 0
+        if autoClickerLevel == 0 then
+            return 0
+        end
+        
+        local autoClickerData = GameConfig.AutoClickerUpgrades[autoClickerLevel + 1]
+        if not autoClickerData then
+            return 0
+        end
+        
+        baseIncome = autoClickerData.AuraPerSecond
     end
-    
-    local baseIncome = autoClickerData.AuraPerSecond
     
     -- Apply upgrade multiplier (not prestige - that's done in AddAura)
     local multiplierLevel = data.MultiplierLevel or 0
     local multiplierData = GameConfig.MultiplierUpgrades[multiplierLevel + 1]
     local upgradeMultiplier = multiplierData and multiplierData.Multiplier or 1
     
-    return math.floor(baseIncome * upgradeMultiplier)
+    -- Apply game pass multipliers
+    local passMultiplier = 1
+    if GamePassService then
+        passMultiplier = GamePassService.GetPassMultiplier(player)
+    end
+    
+    return math.floor(baseIncome * upgradeMultiplier * passMultiplier)
 end
 
 -- Process auto-click tick for all players
@@ -71,6 +92,9 @@ end
 
 -- Initialize auto-clicker service
 function AutoClickerService.Initialize()
+    -- Load GamePassService
+    GamePassService = require(script.Parent.GamePassService)
+    
     -- Get reference to update remote (created by ClickHandler)
     task.spawn(function()
         updateRemote = ReplicatedStorage:WaitForChild("UpdateRemote", 10)

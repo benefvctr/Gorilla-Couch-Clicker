@@ -42,6 +42,7 @@ GameConfig.Prestige = {
 GameConfig.DefaultPlayerData = {
     -- Currency
     Aura = 0,
+    Coins = 0,  -- Secondary currency for cosmetics (earned by selling aura)
     
     -- Upgrades (reset on prestige)
     ClickPower = 1,

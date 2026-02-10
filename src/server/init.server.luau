@@ -10,11 +10,15 @@ local PlayerDataService = require(script.PlayerDataService)
 local ClickHandler = require(script.ClickHandler)
 local UpgradeHandler = require(script.UpgradeHandler)
 local AutoClickerService = require(script.AutoClickerService)
+local GamePassService = require(script.GamePassService)
+local VendorHandler = require(script.VendorHandler)
 
 -- Initialize in order (PlayerDataService first as others depend on it)
 PlayerDataService.Initialize()
+GamePassService.Initialize()  -- Before handlers that use it
 ClickHandler.Initialize()
 UpgradeHandler.Initialize()
 AutoClickerService.Initialize()
+VendorHandler.Initialize()
 
 print("[Server] Gorilla Couch Clicker initialized successfully! 🦍🛋️")

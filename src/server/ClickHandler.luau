@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 
 local GameConfig = require(game.ReplicatedStorage.Shared.GameConfig)
 local PlayerDataService = require(script.Parent.PlayerDataService)
+local GamePassService = nil  -- Loaded after init to avoid circular dependency
 
 local ClickHandler = {}
 
@@ -36,12 +37,22 @@ function ClickHandler.CalculateBaseClickAura(player: Player): (number, boolean)
     local multiplierData = GameConfig.MultiplierUpgrades[multiplierLevel + 1]
     local upgradeMultiplier = multiplierData and multiplierData.Multiplier or 1
     
-    -- Check for lucky click
-    local isLucky = math.random() < GameConfig.LuckyClickChance
+    -- Apply game pass multipliers (2x Aura, VIP, Temp Boosts)
+    local passMultiplier = 1
+    if GamePassService then
+        passMultiplier = GamePassService.GetPassMultiplier(player)
+    end
+    
+    -- Check for lucky click (game pass can boost this)
+    local luckyChance = GameConfig.LuckyClickChance
+    if GamePassService then
+        luckyChance = GamePassService.GetLuckyChance(player)
+    end
+    local isLucky = math.random() < luckyChance
     local luckyMultiplier = isLucky and GameConfig.LuckyClickMultiplier or 1
     
     -- Calculate base (before prestige multiplier, which is applied in AddAura)
-    local totalBase = math.floor(baseAura * upgradeMultiplier * luckyMultiplier)
+    local totalBase = math.floor(baseAura * upgradeMultiplier * passMultiplier * luckyMultiplier)
     
     return totalBase, isLucky
 end
@@ -85,6 +96,9 @@ end
 
 -- Initialize click handling
 function ClickHandler.Initialize()
+    -- Load GamePassService (delayed to avoid circular deps)
+    GamePassService = require(script.Parent.GamePassService)
+    
     -- Create RemoteEvent for client-server communication
     clickRemote = Instance.new("RemoteEvent")
     clickRemote.Name = "ClickRemote"
