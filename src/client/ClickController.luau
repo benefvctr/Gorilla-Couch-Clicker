@@ -17,6 +17,9 @@ local player = Players.LocalPlayer
 local clickRemote = nil
 local updateRemote = nil
 
+-- Track which couches we've processed for visibility
+local processedCouches = {}
+
 -- Current player data (cached locally)
 local localPlayerData = {
     Aura = 0,
@@ -173,12 +176,59 @@ local function isCouch(model: Model): boolean
     return model:GetAttribute("OwnerId") ~= nil
 end
 
+-- Check if this couch belongs to the local player
+local function isMyCouch(model: Model): boolean
+    local ownerId = model:GetAttribute("OwnerId")
+    return ownerId == player.UserId
+end
+
+-- Hide or show a couch based on ownership (for instanced mode)
+local function updateCouchVisibility(couchModel: Model)
+    if processedCouches[couchModel] then return end
+    processedCouches[couchModel] = true
+    
+    local isMine = isMyCouch(couchModel)
+    
+    -- Hide other players' couches by making all parts invisible
+    for _, part in couchModel:GetDescendants() do
+        if part:IsA("BasePart") then
+            if isMine then
+                -- My couch - keep visible (restore original transparency)
+                -- Don't change anything, let it render normally
+            else
+                -- Not my couch - hide it completely
+                part.Transparency = 1
+                part.CanCollide = false
+            end
+        elseif part:IsA("BillboardGui") then
+            -- Hide name tags of other players' couches
+            if not isMine then
+                part.Enabled = false
+            end
+        elseif part:IsA("ClickDetector") then
+            -- Disable click detection on other players' couches
+            if not isMine then
+                part.MaxActivationDistance = 0
+            end
+        end
+    end
+    
+    if isMine then
+        print("[ClickController] Found MY couch! Setting up click detection...")
+    else
+        print("[ClickController] Hiding " .. couchModel.Name .. " (not mine)")
+    end
+end
+
 -- Find and set up click detection for all couches
 function ClickController.FindPlayerCouch()
-    -- Set up existing couches
+    -- Process existing couches
     for _, child in workspace:GetChildren() do
         if child:IsA("Model") and isCouch(child) then
-            ClickController.SetupCouchClickDetection(child)
+            updateCouchVisibility(child)
+            if isMyCouch(child) then
+                ClickController.SetupCouchClickDetection(child)
+            end
         end
     end
     
@@ -187,7 +237,10 @@ function ClickController.FindPlayerCouch()
         if child:IsA("Model") and isCouch(child) then
             -- Small delay to ensure model is fully loaded
             task.wait(0.1)
-            ClickController.SetupCouchClickDetection(child)
+            updateCouchVisibility(child)
+            if isMyCouch(child) then
+                ClickController.SetupCouchClickDetection(child)
+            end
         end
     end)
     

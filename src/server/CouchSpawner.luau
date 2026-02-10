@@ -17,12 +17,16 @@ local CouchVisuals = require(game.ReplicatedStorage.Shared.CouchVisuals)
 local CouchSpawner = {}
 
 -- ⚠️ DEBUG: Set to true to SEE the click hitbox (green transparent box)
-local DEBUG_SHOW_HITBOX = true  -- Change to false when done testing!
+local DEBUG_SHOW_HITBOX = false  -- Change to true to debug hitbox
+
+-- INSTANCING: All couches spawn at same position, each player only sees their own
+local INSTANCED_MODE = true  -- Set to false to go back to circle arrangement
+local COUCH_POSITION = Vector3.new(0, 2, 15)  -- Position in front of spawn
 
 -- Store player couches
 local playerCouches = {}
 
--- Spawn positions in a circle around center
+-- Spawn positions in a circle around center (used when INSTANCED_MODE = false)
 local SPAWN_RADIUS = 25
 local CENTER_POSITION = Vector3.new(0, 0, 0)
 
@@ -62,13 +66,18 @@ local function getModelBoundingBox(model: Model): (Vector3, Vector3)
     return center, size
 end
 
--- Get spawn position for player (arranged in a circle)
+-- Get spawn position for player
 local function getSpawnPosition(playerIndex: number, totalPlayers: number): Vector3
-    -- Arrange in a circle, with first player at front
-    local angle = (playerIndex - 1) * (2 * math.pi / math.max(totalPlayers, 8))
-    local x = CENTER_POSITION.X + SPAWN_RADIUS * math.sin(angle)
-    local z = CENTER_POSITION.Z + SPAWN_RADIUS * math.cos(angle)
-    return Vector3.new(x, 2, z) -- Y=2 puts seat just above ground
+    if INSTANCED_MODE then
+        -- All couches at same position (each player only sees their own)
+        return COUCH_POSITION
+    else
+        -- Arrange in a circle, with first player at front
+        local angle = (playerIndex - 1) * (2 * math.pi / math.max(totalPlayers, 8))
+        local x = CENTER_POSITION.X + SPAWN_RADIUS * math.sin(angle)
+        local z = CENTER_POSITION.Z + SPAWN_RADIUS * math.cos(angle)
+        return Vector3.new(x, 2, z)
+    end
 end
 
 -- Create a fallback couch if no template exists
@@ -317,6 +326,9 @@ end
 
 -- Rearrange all couches (when players join/leave)
 local function rearrangeCouches()
+    -- Skip rearranging in instanced mode (all couches at same position)
+    if INSTANCED_MODE then return end
+    
     local players = Players:GetPlayers()
     local index = 1
     
