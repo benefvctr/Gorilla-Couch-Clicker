@@ -65,10 +65,10 @@ function UIController.CreateUI()
     mainGui.ResetOnSpawn = false
     mainGui.Parent = playerGui
     
-    -- Aura Display (top center)
+    -- Aura Display (top center) - expanded for stats
     local auraFrame = Instance.new("Frame")
     auraFrame.Name = "AuraFrame"
-    auraFrame.Size = UDim2.new(0, 320, 0, 100)
+    auraFrame.Size = UDim2.new(0, 320, 0, 130)
     auraFrame.Position = UDim2.new(0.5, -160, 0, 20)
     auraFrame.BackgroundColor3 = Color3.fromRGB(15, 10, 30)
     auraFrame.BorderSizePixel = 0
@@ -117,7 +117,7 @@ function UIController.CreateUI()
     prestigeLabel = Instance.new("TextLabel")
     prestigeLabel.Name = "PrestigeLabel"
     prestigeLabel.Size = UDim2.new(0.5, -5, 0, 20)
-    prestigeLabel.Position = UDim2.new(0, 10, 1, -25)
+    prestigeLabel.Position = UDim2.new(0, 10, 0, 75)
     prestigeLabel.BackgroundTransparency = 1
     prestigeLabel.Text = "⭐ Prestige: 0"
     prestigeLabel.TextColor3 = Color3.fromRGB(255, 215, 100)
@@ -129,7 +129,7 @@ function UIController.CreateUI()
     prestigeMultLabel = Instance.new("TextLabel")
     prestigeMultLabel.Name = "MultiplierLabel"
     prestigeMultLabel.Size = UDim2.new(0.5, -5, 0, 20)
-    prestigeMultLabel.Position = UDim2.new(0.5, 0, 1, -25)
+    prestigeMultLabel.Position = UDim2.new(0.5, 0, 0, 75)
     prestigeMultLabel.BackgroundTransparency = 1
     prestigeMultLabel.Text = "🚀 1x Aura"
     prestigeMultLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
@@ -137,6 +137,18 @@ function UIController.CreateUI()
     prestigeMultLabel.TextXAlignment = Enum.TextXAlignment.Right
     prestigeMultLabel.Font = Enum.Font.GothamBold
     prestigeMultLabel.Parent = auraFrame
+    
+    -- Click stats row (shows aura per click with all bonuses)
+    local clickStatsLabel = Instance.new("TextLabel")
+    clickStatsLabel.Name = "ClickStatsLabel"
+    clickStatsLabel.Size = UDim2.new(1, -20, 0, 22)
+    clickStatsLabel.Position = UDim2.new(0, 10, 0, 100)
+    clickStatsLabel.BackgroundTransparency = 1
+    clickStatsLabel.Text = "⚡ 1 aura/click"
+    clickStatsLabel.TextColor3 = Color3.fromRGB(255, 180, 100)
+    clickStatsLabel.TextSize = 13
+    clickStatsLabel.Font = Enum.Font.GothamBold
+    clickStatsLabel.Parent = auraFrame
     
     -- Click feedback container
     clickFeedbackContainer = Instance.new("Frame")
@@ -546,6 +558,7 @@ function UIController.CreateTierButton(parent, tierData)
     titleLabel.Parent = button
     
     local costLabel = Instance.new("TextLabel")
+    costLabel.Name = "CostLabel"
     costLabel.Size = UDim2.new(0.3, 0, 1, 0)
     costLabel.Position = UDim2.new(0.7, 0, 0, 0)
     costLabel.BackgroundTransparency = 1
@@ -598,7 +611,54 @@ function UIController.UpdatePrestige(prestigeLevel: number)
     end
     if prestigeMultLabel then
         local mult = GameConfig.GetPrestigeMultiplier(prestigeLevel)
-        prestigeMultLabel.Text = "🚀 " .. mult .. "x Aura"
+        prestigeMultLabel.Text = "🚀 " .. mult .. "x Prestige"
+    end
+end
+
+-- Update click stats display (aura per click with all bonuses)
+function UIController.UpdateClickStats()
+    if not mainGui or not cachedPlayerData then return end
+    
+    local auraFrame = mainGui:FindFirstChild("AuraFrame")
+    if not auraFrame then return end
+    
+    local clickStatsLabel = auraFrame:FindFirstChild("ClickStatsLabel")
+    if not clickStatsLabel then return end
+    
+    -- Calculate aura per click
+    local clickPower = cachedPlayerData.ClickPower or 1
+    local clickPowerData = GameConfig.ClickPowerUpgrades[clickPower]
+    local baseAura = clickPowerData and clickPowerData.Power or 1
+    
+    -- Get multiplier from upgrades
+    local multiplierLevel = cachedPlayerData.MultiplierLevel or 0
+    local multiplierData = GameConfig.MultiplierUpgrades[multiplierLevel + 1]
+    local upgradeMultiplier = multiplierData and multiplierData.Multiplier or 1
+    
+    -- Get prestige multiplier
+    local prestigeLevel = cachedPlayerData.PrestigeLevel or 0
+    local prestigeMultiplier = GameConfig.GetPrestigeMultiplier(prestigeLevel)
+    
+    -- Calculate total aura per click
+    local totalAuraPerClick = baseAura * upgradeMultiplier * prestigeMultiplier
+    
+    -- Build display string
+    local parts = {}
+    table.insert(parts, "⚡ " .. UIController.FormatNumber(totalAuraPerClick) .. "/click")
+    
+    -- Show breakdown if there are bonuses
+    local bonuses = {}
+    if upgradeMultiplier > 1 then
+        table.insert(bonuses, upgradeMultiplier .. "x mult")
+    end
+    if prestigeMultiplier > 1 then
+        table.insert(bonuses, prestigeMultiplier .. "x prestige")
+    end
+    
+    if #bonuses > 0 then
+        clickStatsLabel.Text = "⚡ " .. UIController.FormatNumber(totalAuraPerClick) .. "/click (" .. table.concat(bonuses, " + ") .. ")"
+    else
+        clickStatsLabel.Text = "⚡ " .. UIController.FormatNumber(totalAuraPerClick) .. " aura/click"
     end
 end
 
@@ -710,9 +770,10 @@ function UIController.OnUpgradeResponse(data)
         warn("[UI] Upgrade failed: " .. tostring(data.Message))
     end
     
-    -- Always update shop prices and prestige (even on failure, to refresh)
+    -- Always update shop prices, prestige, and click stats (even on failure, to refresh)
     UIController.UpdateShopPrices()
     UIController.UpdatePrestigeProgress()
+    UIController.UpdateClickStats()
 end
 
 -- Show prestige celebration effect

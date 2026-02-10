@@ -76,7 +76,7 @@ function ClickHandler.ProcessClick(player: Player)
         local actualAura = PlayerDataService.AddAura(player, baseAura)
         PlayerDataService.IncrementClicks(player)
         
-        -- Send updated data to client
+        -- Send updated data to client (include all stats for UI)
         local data = PlayerDataService.GetPlayerData(player)
         if data and updateRemote then
             updateRemote:FireClient(player, {
@@ -85,6 +85,10 @@ function ClickHandler.ProcessClick(player: Player)
                 IsLucky = isLucky,
                 PrestigeLevel = data.PrestigeLevel,
                 TotalAuraEarned = data.TotalAuraEarned,
+                ClickPower = data.ClickPower,
+                MultiplierLevel = data.MultiplierLevel,
+                AutoClickerLevel = data.AutoClickerLevel,
+                CouchTier = data.CouchTier,
             })
         end
         

@@ -22,6 +22,10 @@ local localPlayerData = {
     Aura = 0,
     PrestigeLevel = 0,
     TotalAuraEarned = 0,
+    ClickPower = 1,
+    MultiplierLevel = 0,
+    AutoClickerLevel = 0,
+    CouchTier = 1,
 }
 
 -- Callback for when aura updates (set by UIController)
@@ -78,12 +82,27 @@ function ClickController.OnServerUpdate(data)
         end
     end
     
+    -- Cache upgrade stats for UI display
+    if data.ClickPower then
+        localPlayerData.ClickPower = data.ClickPower
+    end
+    if data.MultiplierLevel then
+        localPlayerData.MultiplierLevel = data.MultiplierLevel
+    end
+    if data.AutoClickerLevel then
+        localPlayerData.AutoClickerLevel = data.AutoClickerLevel
+    end
+    if data.CouchTier then
+        localPlayerData.CouchTier = data.CouchTier
+    end
+    
     if data.TotalAuraEarned then
         localPlayerData.TotalAuraEarned = data.TotalAuraEarned
-        -- Notify UI to update prestige progress
-        if ClickController.OnProgressUpdated then
-            ClickController.OnProgressUpdated(localPlayerData)
-        end
+    end
+    
+    -- Notify UI to update all stats
+    if ClickController.OnProgressUpdated then
+        ClickController.OnProgressUpdated(localPlayerData)
     end
     
     -- Click feedback (floating +aura)

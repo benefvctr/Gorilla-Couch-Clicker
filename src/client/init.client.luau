@@ -65,9 +65,10 @@ ClickController.OnClickFeedback = function(aura, isLucky)
 end
 
 ClickController.OnProgressUpdated = function(playerData)
-    -- Cache data in UI controller and update prestige progress
+    -- Cache data in UI controller and update all stats
     UIController.CachePlayerData(playerData)
     UIController.UpdatePrestigeProgress()
+    UIController.UpdateClickStats()
 end
 
 print("[Client] Gorilla Couch Clicker client initialized! 🦍🛋️")
