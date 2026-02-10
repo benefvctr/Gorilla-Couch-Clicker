@@ -58,7 +58,7 @@ function ClickHandler.CalculateBaseClickAura(player: Player): (number, boolean)
 end
 
 -- Process a click from a player
-function ClickHandler.ProcessClick(player: Player): (number, boolean)?
+function ClickHandler.ProcessClick(player: Player)
     -- Anti-exploit: check click cooldown
     local currentTime = tick()
     local lastTime = lastClickTime[player.UserId] or 0
