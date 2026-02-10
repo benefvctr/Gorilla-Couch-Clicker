@@ -202,6 +202,11 @@ function UpgradeHandler.PerformPrestige(player: Player): (boolean, string)
     
     local success = PlayerDataService.PerformPrestige(player)
     if success then
+        -- Reset couch visuals back to tier 1
+        if CouchSpawner then
+            CouchSpawner.UpdateCouchTier(player, 1)
+        end
+        
         local newData = PlayerDataService.GetPlayerData(player)
         local newMultiplier = GameConfig.GetPrestigeMultiplier(newData.PrestigeLevel)
         return true, "Prestige " .. newData.PrestigeLevel .. "! Now earning " .. newMultiplier .. "x aura!"
