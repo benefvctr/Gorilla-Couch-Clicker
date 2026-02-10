@@ -24,9 +24,6 @@
     },
 
     "Workspace": {
-      "$properties": {
-        "FilteringEnabled": true
-      },
       "Baseplate": {
         "$className": "Part",
         "$properties": {
@@ -40,13 +37,9 @@
       },
       "GorillaCouch": {
         "$className": "Model",
-        "$properties": {
-          "PrimaryPart": "Seat"
-        },
         "Seat": {
           "$className": "Part",
           "$properties": {
-            "Name": "Seat",
             "Anchored": true,
             "Color": [0.545, 0.353, 0.169],
             "Material": "Fabric",
@@ -87,7 +80,6 @@
         "GorillaBody": {
           "$className": "Part",
           "$properties": {
-            "Name": "GorillaBody",
             "Anchored": true,
             "Color": [0.2, 0.2, 0.2],
             "Material": "SmoothPlastic",
@@ -99,7 +91,6 @@
         "GorillaHead": {
           "$className": "Part",
           "$properties": {
-            "Name": "GorillaHead",
             "Anchored": true,
             "Color": [0.25, 0.25, 0.25],
             "Material": "SmoothPlastic",
@@ -111,7 +102,6 @@
         "ClickPrompt": {
           "$className": "Part",
           "$properties": {
-            "Name": "ClickPrompt",
             "Anchored": true,
             "Transparency": 1,
             "CanCollide": false,
