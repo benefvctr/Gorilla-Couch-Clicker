@@ -17,7 +17,7 @@ local CouchVisuals = require(game.ReplicatedStorage.Shared.CouchVisuals)
 local CouchSpawner = {}
 
 -- ⚠️ DEBUG: Set to true to SEE the click hitbox (green transparent box)
-local DEBUG_SHOW_HITBOX = false  -- Change to true to debug hitbox
+local DEBUG_SHOW_HITBOX = true  -- Set to false when positioning is correct
 
 -- INSTANCING: All couches spawn at same position, each player only sees their own
 local INSTANCED_MODE = true  -- Set to false to go back to circle arrangement
@@ -185,14 +185,18 @@ local function createCouchModel(player: Player, position: Vector3): Model
     end
     
     if not hasClickDetector then
-        -- Calculate bounding box to auto-size the click area
-        local center, size = getModelBoundingBox(couch)
+        -- Calculate bounding box size (but we'll position at the model's pivot)
+        local _, size = getModelBoundingBox(couch)
         
-        -- Add click part covering the entire couch
+        -- Get the model's actual pivot position (where we placed it)
+        local pivotPos = couch:GetPivot().Position
+        
+        -- Add click part covering the couch, centered on the pivot
+        -- Offset Y up by half the height so hitbox covers the model
         local clickPart = Instance.new("Part")
         clickPart.Name = "ClickPart"
         clickPart.Size = size
-        clickPart.Position = center
+        clickPart.Position = pivotPos + Vector3.new(0, size.Y / 2, 0)
         clickPart.Anchored = true
         clickPart.CanCollide = false
         clickPart.Parent = couch
@@ -202,7 +206,7 @@ local function createCouchModel(player: Player, position: Vector3): Model
             clickPart.Transparency = 0.7
             clickPart.Color = Color3.fromRGB(0, 255, 0)
             clickPart.Material = Enum.Material.Neon
-            print("[CouchSpawner] DEBUG: Hitbox visible - Size:", size, "Center:", center)
+            print("[CouchSpawner] DEBUG: Hitbox at pivot:", pivotPos, "Size:", size)
         else
             clickPart.Transparency = 1
         end
@@ -212,13 +216,17 @@ local function createCouchModel(player: Player, position: Vector3): Model
         clickDetector.Parent = clickPart
     end
     
-    -- Add name tag if not present
+    -- Add name tag if not present (position above the couch)
     local hasNameTag = couch:FindFirstChild("NameTag")
     if not hasNameTag then
+        local pivotPos = couch:GetPivot().Position
+        local _, modelSize = getModelBoundingBox(couch)
+        
         local billboardPart = Instance.new("Part")
         billboardPart.Name = "NameTag"
         billboardPart.Size = Vector3.new(1, 1, 1)
-        billboardPart.Position = position + Vector3.new(0, 8, 0)
+        -- Position above the model (pivot + full height + some padding)
+        billboardPart.Position = pivotPos + Vector3.new(0, modelSize.Y + 2, 0)
         billboardPart.Anchored = true
         billboardPart.Transparency = 1
         billboardPart.CanCollide = false
